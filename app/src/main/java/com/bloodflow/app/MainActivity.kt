@@ -152,7 +152,7 @@ private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit)
     val dateState = rememberDatePickerState(initialSelectedDateMillis = start.toEpochDay() * 86400000L)
     if (picker) DatePickerDialog(onDismissRequest = { picker = false }, confirmButton = {
         TextButton(onClick = {
-            dateState.selectedDateMillis?.let { start = LocalDate.ofEpochDay(it / 86400000L) }
+            dateState.selectedDateMillis?.let { val chosen = LocalDate.ofEpochDay(it / 86400000L); if (!chosen.isAfter(LocalDate.now())) start = chosen }
             picker = false
         }) { Text("Done") }
     }) { DatePicker(state = dateState) }
