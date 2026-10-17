@@ -52,7 +52,8 @@ private val monthFmt = DateTimeFormatter.ofPattern("MMMM yyyy")
 data class Entry(val date: String, val mood: String, val symptoms: List<String>, val note: String)
 data class Model(val periods: List<String> = emptyList(), val length: Int = 28, val days: Int = 5, val entries: List<Entry> = emptyList())
 
-private fun readModel(ctx: Context): Model = try {
+private fun readModel(ctx: Context): Model {
+    return try {
     val raw = ctx.getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE).getString("data", null) ?: return Model()
     val obj = JSONObject(raw)
     val ps = obj.optJSONArray("periods") ?: JSONArray()
@@ -68,6 +69,7 @@ private fun readModel(ctx: Context): Model = try {
         }
     )
 } catch (_: Exception) { Model() }
+}
 
 private fun saveModel(ctx: Context, m: Model) {
     val o = JSONObject()
