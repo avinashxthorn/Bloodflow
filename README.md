@@ -38,3 +38,14 @@ All diary entries are saved in Android app-private SharedPreferences on the devi
 - Export/import of encrypted backups
 - Accessible language selection
 - Automated test coverage, release signing and Play Store readiness
+
+## Updating an existing installation
+Download the latest **successful** APK from GitHub Actions. Install it over the existing Bloodflow app without uninstalling. Data stored by the application survives app relaunches, force stop, and removing the task from Android Recents.
+
+**Signing caveat:** Android only installs updates in place when both APKs have the same application ID and signing certificate. Builds made on ephemeral CI runners may use different debug signing keys. This workflow caches its debug key for subsequent builds, but caches can expire and it cannot match APKs built **before** the cache was first created. If Android says "App not installed" when updating, do **not** uninstall if you need your saved data. Future production builds should use a permanently maintained private release key.
+
+## Version 1.1.0
+- More visible personalized nickname editing and greeting
+- New rose-pink lotus and droplet launcher icon
+- Persistent saved name and entries, with synchronous disk commit
+- APK versionCode raised to 2 for recognizable upgrade

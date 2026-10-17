@@ -433,19 +433,19 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) 
         TextButton(onClick={update(Model());confirm=false;reset()}) { Text("Erase everything",color=Rose) }
     },dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}})
     LazyColumn(contentPadding=PaddingValues(23.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item { Header("Made with care", if (m.name.isBlank()) "Your space" else "${m.name}’s space") }
+        item { Header("MADE FOR YOU · v1.1", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
         item {
             Panel {
-                Text("Your profile", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text("Make Bloodflow yours", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = profileName, onValueChange = { profileName = it.take(40) }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = profileName, onValueChange = { profileName = it.take(40) }, label = { Text("Your name or nickname") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(10.dp))
-                Button(onClick = { update(m.copy(name = profileName.trim())) }, modifier = Modifier.fillMaxWidth()) { Text("Save name") }
+                Button(onClick = { update(m.copy(name = profileName.trim())) }, modifier = Modifier.fillMaxWidth()) { Text("Save my name") }
             }
         }
         item {
             Panel {
-                Row(verticalAlignment=Alignment.CenterVertically) { Text("🌷",fontSize=33.sp);Spacer(Modifier.width(12.dp));Column { Text("Bloodflow",fontSize=22.sp,fontWeight=FontWeight.Bold);Text(if (m.name.isBlank()) "A more mindful monthly rhythm" else "Made for ${m.name} ♡",fontSize=12.sp,color=Muted) } }
+                Row(verticalAlignment=Alignment.CenterVertically) { Text("🪷",fontSize=33.sp);Spacer(Modifier.width(12.dp));Column { Text("Bloodflow",fontSize=22.sp,fontWeight=FontWeight.Bold);Text(if (m.name.isBlank()) "A more mindful monthly rhythm" else "Made for ${m.name} ♡",fontSize=12.sp,color=Muted) } }
             }
         }
         item {
@@ -474,7 +474,7 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) 
                 Spacer(Modifier.height(8.dp))
                 Text("Predictions are calendar-based estimates using your selected cycle length. They are not diagnoses, ovulation tests, fertility measurements, pregnancy tests, or a reliable method of birth control. Different cycles and ages can have different normal ranges.",fontSize=13.sp,color=Muted,lineHeight=19.sp)
                 Spacer(Modifier.height(9.dp))
-                Text("Version 1.0 · Offline-first",fontSize=12.sp,color=Rose)
+                Text("Version 1.1.0 · Offline-first",fontSize=12.sp,color=Rose)
             }
         }
     }
