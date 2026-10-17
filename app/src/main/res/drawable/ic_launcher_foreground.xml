@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Soft luminous backdrop -->
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.24"
+        android:pathData="M 89,54 A 35,35 0,1 1,19 54 A 35,35 0,1 1,89 54 Z" />
+    <!-- Flowing hair silhouette -->
+    <path android:fillColor="#CE1D65"
+        android:pathData="M 82,29 C 76,14 59,16 44,25 C 29,34 21,48 24,65 C 27,83 46,94 70,87 C 59,84 50,77 49,67 C 48,55 55,47 65,41 C 75,36 79,30 80,23 C 82,29 84,38 87,42 C 90,35 87,30 82,29 Z" />
+    <!-- Warm light across the lower hair -->
+    <path android:fillColor="#FF6C91" android:fillAlpha="0.70"
+        android:pathData="M 29,55 C 23,71 36,88 53,89 C 44,84 40,77 41,67 C 42,56 48,50 55,45 C 43,49 35,53 29,55 Z" />
+    <!-- Calm profile -->
+    <path android:fillColor="#FFF1F4"
+        android:pathData="M 77,29 C 77,36 82,42 84,46 C 87,49 86,51 82,53 C 79,55 82,58 80,61 C 78,64 73,63 70,62 C 65,60 60,66 59,70 C 54,65 50,61 50,56 C 51,43 66,37 77,29 Z" />
+    <path android:strokeColor="#DD4A79" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M 74,46 Q 78,44 81,46" />
+    <path android:strokeColor="#B62962" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M 77,50 Q 80,51 82,49" />
+    <!-- The central crimson drop -->
+    <path android:fillColor="#BE0B56"
+        android:pathData="M 36,70 C 36,61 43,56 46,47 C 48,58 60,62 60,72 C 60,81 54,86 47,86 C 40,86 36,79 36,70 Z" />
+    <path android:fillColor="#F33C75" android:fillAlpha="0.88"
+        android:pathData="M 41,68 C 44,63 45,58 46,51 C 48,59 56,65 55,73 C 55,80 51,83 46,82 C 41,81 38,75 41,68 Z" />
+    <path android:strokeColor="#FFD0DC" android:strokeWidth="2.8" android:strokeLineCap="round"
+        android:pathData="M 41,71 C 40,67 44,60 46,57 C 44,65 44,68 43,73" />
+    <!-- Renewal leaves -->
+    <path android:fillColor="#FFF0F6"
+        android:pathData="M 67,85 C 68,76 74,71 84,70 C 82,80 76,85 67,85 Z" />
+    <path android:fillColor="#FFACCB"
+        android:pathData="M 67,85 C 63,78 59,76 55,76 C 57,82 62,85 67,85 Z" />
+    <path android:strokeColor="#D95C90" android:strokeWidth="1.0" android:strokeAlpha="0.65"
+        android:pathData="M 67,85 L 76,76" />
+    <!-- Small star for a caring, uplifting feel -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M 32,24 L 34,30 L 40,32 L 34,34 L 32,40 L 30,34 L 24,32 L 30,30 Z" />
+</vector>
