@@ -137,6 +137,7 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Welcome(model: Model, onSave: (LocalDate, Int, Int) -> Unit) {
     var start by remember { mutableStateOf(LocalDate.now()) }
@@ -184,6 +185,7 @@ private fun Header(kicker: String, headline: String) {
     Spacer(Modifier.height(7.dp))
     Text(headline, fontSize = 29.sp, fontWeight = FontWeight.Bold, color = Ink)
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TodayScreen(m: Model, update: (Model) -> Unit, openJournal: () -> Unit) {
     val today = LocalDate.now()
@@ -201,9 +203,7 @@ private fun TodayScreen(m: Model, update: (Model) -> Unit, openJournal: () -> Un
             }
             picker = false
         }) { Text("Save") }
-    }) { DatePicker(state = dp, dateValidator = object: androidx.compose.material3.SelectableDates {
-        override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= today.toEpochDay() * 86400000L
-    }) }
+    }) { DatePicker(state = dp) }
     LazyColumn(contentPadding = PaddingValues(23.dp), verticalArrangement = Arrangement.spacedBy(17.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
