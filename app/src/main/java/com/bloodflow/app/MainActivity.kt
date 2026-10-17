@@ -105,15 +105,28 @@ class MainActivity : ComponentActivity() {
         setContent {
             var state by remember { mutableStateOf(readModel(this)) }
             fun update(m: Model) { state = m; saveModel(this, m) }
-            BloodflowApp(state, ::update)
+            BloodflowApp(state, ::update) { restoredJson ->
+                try {
+                    val parsed = JSONObject(restoredJson)
+                    val periods = parsed.optJSONArray("periods") ?: return@BloodflowApp false
+                    val entries = parsed.optJSONArray("entries") ?: return@BloodflowApp false
+                    if (periods.length() == 0 || entries.length() > 10000) return@BloodflowApp false
+                    for (index in 0 until periods.length()) LocalDate.parse(periods.getString(index))
+                    if (!getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE)
+                            .edit().putString("data", restoredJson).commit()) return@BloodflowApp false
+                    state = readModel(this)
+                    true
+                } catch (_: Exception) { false }
+            }
         }
     }
 }
 @Composable
-private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
+private fun BloodflowApp(model: Model, update: (Model) -> Unit, onRestore: (String) -> Boolean) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val prefs = remember { ctx.getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE) }
     var showIntro by remember { mutableStateOf(!prefs.getBoolean("intro_seen_v2", false)) }
+    var showRestoreAccount by remember { mutableStateOf(false) }
     var tab by remember { mutableIntStateOf(0) }
     var onboarding by remember { mutableStateOf(model.periods.isEmpty()) }
     MaterialTheme(colorScheme = lightColorScheme(primary = Rose, secondary = Lavender, background = Background, surface = Paper, onSurface = Ink)) {
@@ -121,7 +134,20 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
             if (showIntro) {
                 IntroCarousel(onComplete = { prefs.edit().putBoolean("intro_seen_v2", true).commit(); showIntro = false })
             } else if (onboarding) {
-                Welcome(model) { name, start, length, duration ->
+                if (showRestoreAccount) {
+                    Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(22.dp)) {
+                        TextButton(onClick = { showRestoreAccount = false }) { Text("← Back to setup") }
+                        Text("Restore your Bloodflow", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Ink)
+                        Spacer(Modifier.height(10.dp))
+                        Text("Sign in and decrypt an existing backup using your passphrase.", color = Muted)
+                        Spacer(Modifier.height(18.dp))
+                        CloudAccountSection(onRestore = { raw ->
+                            val restored = onRestore(raw)
+                            if (restored) { showRestoreAccount = false; onboarding = false }
+                            restored
+                        })
+                    }
+                } else Welcome(model, onRestoreClick = { showRestoreAccount = true }) { name, start, length, duration ->
                     update(model.copy(name = name, periods = listOf(start.toString()), length = length, days = duration))
                     onboarding = false
                 }
@@ -140,7 +166,7 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
                             1 -> CalendarScreen(model, update)
                             2 -> FertilityScreen(model)
                             3 -> JournalScreen(model, update)
-                            else -> ProfileScreen(model, update) { onboarding = true }
+                            else -> ProfileScreen(model, update, onReset = { onboarding = true }, onRestore = onRestore)
                         }
                     }
                 }
@@ -150,7 +176,7 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit) {
+private fun Welcome(model: Model, onRestoreClick: () -> Unit, onSave: (String, LocalDate, Int, Int) -> Unit) {
     var name by remember { mutableStateOf(model.name) }
     var start by remember { mutableStateOf(LocalDate.now()) }
     var length by remember { mutableFloatStateOf(28f) }
@@ -163,7 +189,7 @@ private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit)
             picker = false
         }) { Text("Done") }
     }) { DatePicker(state = dateState) }
-    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFFFE7EF),Background, Background))).padding(26.dp), verticalArrangement = Arrangement.Center) {
+    Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).background(Brush.verticalGradient(listOf(Color(0xFFFFE7EF),Background, Background))).padding(26.dp), verticalArrangement = Arrangement.Center) {
         Text("✦", fontSize = 46.sp, color = Rose)
         Spacer(Modifier.height(14.dp))
         Text("Your cycle,\nyour rhythm.", fontSize = 38.sp, fontWeight = FontWeight.Bold, lineHeight = 43.sp, color = Ink)
@@ -188,7 +214,8 @@ private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit)
             Button(onClick = { onSave(name.trim(), start, length.roundToInt(), duration.roundToInt()) }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) { Text("Start my journey ✨", fontWeight = FontWeight.Bold) }
         }
         Spacer(Modifier.height(15.dp))
-        Text("Your entries stay on this device. Predictions are estimates, not contraception or medical advice.", fontSize = 12.sp, color = Muted, lineHeight = 17.sp)
+        TextButton(onClick = onRestoreClick, modifier = Modifier.fillMaxWidth()) { Text("Already have a backup? Restore with Google") }
+        Text("Your entries stay on this device unless you opt in to encrypted backup. Predictions are not contraception or medical advice.", fontSize = 12.sp, color = Muted, lineHeight = 17.sp)
     }
 }
 @Composable
@@ -446,16 +473,16 @@ private fun JournalScreen(m: Model, update: (Model) -> Unit) {
     }
 }
 @Composable
-private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) {
+private fun ProfileScreen(m: Model, update: (Model) -> Unit, onReset: () -> Unit, onRestore: (String) -> Boolean) {
     var length by remember(m.length) { mutableFloatStateOf(m.length.toFloat()) }
     var duration by remember(m.days) { mutableFloatStateOf(m.days.toFloat()) }
     var profileName by remember(m.name) { mutableStateOf(m.name) }
     var confirm by remember { mutableStateOf(false) }
     if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("Erase all your data?")},text={Text("This permanently removes all period history, symptoms, notes, and settings saved by Bloodflow on this device.")},confirmButton={
-        TextButton(onClick={update(Model());confirm=false;reset()}) { Text("Erase everything",color=Rose) }
+        TextButton(onClick={update(Model());confirm=false;onReset()}) { Text("Erase everything",color=Rose) }
     },dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}})
     LazyColumn(contentPadding=PaddingValues(23.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item { Header("MADE FOR YOU · v1.2", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
+        item { Header("MADE FOR YOU · v1.3", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
         item {
             Panel {
                 Text("Make Bloodflow yours", fontSize = 19.sp, fontWeight = FontWeight.Bold)
@@ -481,11 +508,12 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) 
                 Button(onClick={update(m.copy(length=length.roundToInt(),days=duration.roundToInt()))},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp)) { Text("Save preferences") }
             }
         }
+        item { CloudAccountSection(onRestore = onRestore) }
         item {
             Panel {
                 Text("Your privacy matters",fontSize=19.sp,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(9.dp))
-                Text("Your information is stored in private app storage on this device. Bloodflow uses no account, advertising SDK, analytics, or internet permission. Uninstalling the app or clearing app data removes your history. This version does not encrypt its local data.",fontSize=13.sp,color=Muted,lineHeight=19.sp)
+                Text("Your journal stays on this phone unless you explicitly create an encrypted cloud backup. Google sign-in is optional. The cloud backup uses a passphrase that Bloodflow cannot recover. Local records are not encrypted. Clearing app data or uninstalling deletes local data.",fontSize=13.sp,color=Muted,lineHeight=19.sp)
                 Spacer(Modifier.height(14.dp))
                 OutlinedButton(onClick={confirm=true},modifier=Modifier.fillMaxWidth(),shape=RoundedCornerShape(14.dp)) { Icon(Icons.Default.DeleteForever,null);Spacer(Modifier.width(8.dp));Text("Delete all my data") }
             }
@@ -496,7 +524,7 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) 
                 Spacer(Modifier.height(8.dp))
                 Text("Predictions are calendar-based estimates using your selected cycle length. They are not diagnoses, ovulation tests, fertility measurements, pregnancy tests, or a reliable method of birth control. Different cycles and ages can have different normal ranges.",fontSize=13.sp,color=Muted,lineHeight=19.sp)
                 Spacer(Modifier.height(9.dp))
-                Text("Version 1.2.0 · Offline-first",fontSize=12.sp,color=Rose)
+                Text("Version 1.3.0 · Private by default",fontSize=12.sp,color=Rose)
             }
         }
     }

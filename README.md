@@ -9,7 +9,7 @@
 - Period history: add and remove period-start dates.
 - Daily mood, symptom, and private-note logging; view and delete journal entries.
 - Personal cycle settings and permanent in-app local data deletion.
-- No login, ads, analytics SDK or network permission.
+- Optional Google sign-in, manual encrypted backup/restore (requires user-owned Firebase configuration), and guest mode; no advertising or analytics SDK.
 
 ## Install the Android APK (no Android Studio required)
 1. Open **[GitHub Actions](https://github.com/avinashxthorn/Bloodflow/actions/workflows/android-apk.yml)**.
@@ -29,7 +29,7 @@ gradle :app:assembleDebug
 Output: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Privacy & medical limitations
-All diary entries are saved in Android app-private SharedPreferences on the device and are **not encrypted**. Android backups are disabled. Clearing app data or uninstalling deletes the stored data; there is currently no export or multi-device sync.
+All diary entries are saved in Android app-private SharedPreferences on the device and are **not encrypted**. Android backups are disabled. Clearing app data or uninstalling deletes the stored data; optional encrypted cloud backup and restore is available after Firebase setup.
 
 **Predictions are approximations** based on a manually selected typical cycle length; the app does not detect ovulation, diagnose medical conditions, or provide reliable fertility or contraception guidance. For severe pain, heavy bleeding, abnormal bleeding or concerns, consult a qualified clinician.
 
@@ -58,3 +58,6 @@ Download the latest **successful** APK from GitHub Actions. Install it over the 
 - All existing data remains in the same on-device store. Do not uninstall the old version when updating if you need your data.
 
 **Medical note:** This is an approximate calendar awareness tool only. It is not a validated contraception method or fertility diagnosis, does not prevent sexually transmitted infections, and cannot verify ovulation. If pregnancy prevention matters, use effective contraception and consult a qualified healthcare professional.
+
+## Version 1.3.0: Google account and encrypted backup
+See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for the required Firebase console steps, repository Actions secrets, Firestore rules, and signing fingerprint. Without this setup, Google sign-in is intentionally disabled while guest mode remains usable.
