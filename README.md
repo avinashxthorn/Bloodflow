@@ -61,3 +61,6 @@ Download the latest **successful** APK from GitHub Actions. Install it over the 
 
 ## Version 1.3.0: Google account and encrypted backup
 See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for the required Firebase console steps, repository Actions secrets, Firestore rules, and signing fingerprint. Without this setup, Google sign-in is intentionally disabled while guest mode remains usable.
+
+## Activate configured Google Sign-In
+After registering the four `BLOODFLOW_FIREBASE_*` repository secrets, **build a new APK** via GitHub Actions. Secrets are injected at compile time: downloading an older artifact does not activate Firebase. Check the build's commit SHA and install the latest APK over the existing app without clearing data. Google sign-in also needs the Android signing SHA-1 registered under the same Firebase project, the Google provider enabled in Firebase Authentication, and Firestore rules that grant access only to the signed-in user's own encrypted backup document. Never upload the passphrase or raw menstrual data to GitHub.
