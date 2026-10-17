@@ -49,3 +49,12 @@ Download the latest **successful** APK from GitHub Actions. Install it over the 
 - New rose-pink lotus and droplet launcher icon
 - Persistent saved name and entries, with synchronous disk commit
 - APK versionCode raised to 2 for recognizable upgrade
+
+## Version 1.2.0 — onboarding and fertility awareness
+- First-run three-screen swipeable introduction: track periods, log symptoms, learn fertility awareness and privacy. The introduction is shown once after upgrade (unless skipped).
+- Fertility tab and calendar amber indicators for *potentially fertile* days when configured cycle length is 26–32 days and recorded intervals meet that range. For other lengths, shows *uncertain* rather than pretending to identify safe dates.
+- Date-by-date exploration with clear warning that no date is guaranteed safe for unprotected sex.
+- Softer text entry design on name and private journal fields, refined app icon, and updated version code 3.
+- All existing data remains in the same on-device store. Do not uninstall the old version when updating if you need your data.
+
+**Medical note:** This is an approximate calendar awareness tool only. It is not a validated contraception method or fertility diagnosis, does not prevent sexually transmitted infections, and cannot verify ovulation. If pregnancy prevention matters, use effective contraception and consult a qualified healthcare professional.

@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -110,11 +111,16 @@ class MainActivity : ComponentActivity() {
 }
 @Composable
 private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { ctx.getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE) }
+    var showIntro by remember { mutableStateOf(!prefs.getBoolean("intro_seen_v2", false)) }
     var tab by remember { mutableIntStateOf(0) }
     var onboarding by remember { mutableStateOf(model.periods.isEmpty()) }
     MaterialTheme(colorScheme = lightColorScheme(primary = Rose, secondary = Lavender, background = Background, surface = Paper, onSurface = Ink)) {
         Surface(color = Background, modifier = Modifier.fillMaxSize()) {
-            if (onboarding) {
+            if (showIntro) {
+                IntroCarousel(onComplete = { prefs.edit().putBoolean("intro_seen_v2", true).commit(); showIntro = false })
+            } else if (onboarding) {
                 Welcome(model) { name, start, length, duration ->
                     update(model.copy(name = name, periods = listOf(start.toString()), length = length, days = duration))
                     onboarding = false
@@ -122,7 +128,7 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
             } else {
                 Scaffold(containerColor = Background, bottomBar = {
                     NavigationBar(containerColor = Paper) {
-                        val tabs = listOf(Triple("Today", Icons.Default.FavoriteBorder, 0), Triple("Calendar", Icons.Default.DateRange, 1), Triple("Journal", Icons.Default.EditNote, 2), Triple("You", Icons.Default.PersonOutline, 3))
+                        val tabs = listOf(Triple("Today", Icons.Default.FavoriteBorder, 0), Triple("Calendar", Icons.Default.DateRange, 1), Triple("Fertility", Icons.Default.Spa, 2), Triple("Journal", Icons.Default.EditNote, 3), Triple("You", Icons.Default.PersonOutline, 4))
                         tabs.forEach { (label, icon, id) ->
                             NavigationBarItem(selected = tab == id, onClick = { tab = id }, icon = { Icon(icon, label) }, label = { Text(label) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = Rose, selectedTextColor = Rose, indicatorColor = RoseLight))
                         }
@@ -130,9 +136,10 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
                 }) { pad ->
                     Box(Modifier.padding(pad)) {
                         when (tab) {
-                            0 -> TodayScreen(model, update) { tab = 2 }
+                            0 -> TodayScreen(model, update) { tab = 3 }
                             1 -> CalendarScreen(model, update)
-                            2 -> JournalScreen(model, update)
+                            2 -> FertilityScreen(model)
+                            3 -> JournalScreen(model, update)
                             else -> ProfileScreen(model, update) { onboarding = true }
                         }
                     }
@@ -157,7 +164,7 @@ private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit)
         }) { Text("Done") }
     }) { DatePicker(state = dateState) }
     Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFFFFE7EF),Background, Background))).padding(26.dp), verticalArrangement = Arrangement.Center) {
-        Text("✿", fontSize = 46.sp, color = Rose)
+        Text("✦", fontSize = 46.sp, color = Rose)
         Spacer(Modifier.height(14.dp))
         Text("Your cycle,\nyour rhythm.", fontSize = 38.sp, fontWeight = FontWeight.Bold, lineHeight = 43.sp, color = Ink)
         Spacer(Modifier.height(12.dp))
@@ -166,7 +173,7 @@ private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit)
         Panel {
             Text("What should we call you?", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(value = name, onValueChange = { name = it.take(40) }, label = { Text("Your name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            PremiumTextField(value = name, onValueChange = { name = it.take(40) }, label = "Your name or nickname", singleLine = true)
             Spacer(Modifier.height(18.dp))
             Text("When did your last period start?", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(9.dp))
@@ -299,6 +306,7 @@ private fun CalendarScreen(m: Model, update: (Model) -> Unit) {
     val today = LocalDate.now()
     val start = date(m.periods.first())
     val predicted = nextPeriod(start,today,m.length)
+    var selectedDay by remember { mutableStateOf(LocalDate.now()) }
     val periodDates = remember(m.periods,m.days) { m.periods.flatMap { s -> (0 until m.days).map { date(s).plusDays(it.toLong()) } }.toSet() }
     LazyColumn(contentPadding=PaddingValues(23.dp),verticalArrangement=Arrangement.spacedBy(17.dp)) {
         item { Header("Your personal timeline","Cycle calendar") }
@@ -325,8 +333,10 @@ private fun CalendarScreen(m: Model, update: (Model) -> Unit) {
                                     val observed = d in periodDates
                                     val forecast = !d.isBefore(predicted) && d.isBefore(predicted.plusDays(m.days.toLong()))
                                     val selected = d==today
-                                    Box(Modifier.size(37.dp).clip(CircleShape).background(if(observed) Rose else if(forecast) RoseLight else if(selected) Color(0xFFECE6F9) else Color.Transparent),contentAlignment=Alignment.Center) {
-                                        Text("$n",color=if(observed) Color.White else Ink,fontWeight=if(selected||observed) FontWeight.Bold else FontWeight.Normal,fontSize=14.sp)
+                                    val fertility = assessFertility(m,d)
+                                    val colored = if (observed) Rose else if (fertility.category == FertilityCategory.HIGHER) Color(0xFFFFE1B4) else if (forecast) RoseLight else if (selectedDay == d) Color(0xFFE4D8FC) else if(selected) Color(0xFFECE6F9) else Color.Transparent
+                                    Box(Modifier.size(39.dp).clip(CircleShape).background(colored).clickable { selectedDay = d },contentAlignment=Alignment.Center) {
+                                        Text("$n",color=if(observed) Color.White else Ink,fontWeight=if(selected||observed||selectedDay==d) FontWeight.Bold else FontWeight.Normal,fontSize=14.sp)
                                     }
                                 }
                             }
@@ -337,6 +347,18 @@ private fun CalendarScreen(m: Model, update: (Model) -> Unit) {
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(12.dp)) {
                     Legend(Rose,"Logged period");Legend(RoseLight,"Predicted")
                 }
+            }
+        }
+        item {
+            Panel {
+                val assessed = assessFertility(m,selectedDay)
+                Text(selectedDay.format(fmt),fontWeight=FontWeight.Bold,fontSize=17.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(assessed.title, color=if (assessed.category==FertilityCategory.HIGHER) Color(0xFF965522) else Muted, fontWeight=FontWeight.SemiBold)
+                Spacer(Modifier.height(7.dp))
+                Text(assessed.explanation,fontSize=12.sp,color=Muted,lineHeight=18.sp)
+                Spacer(Modifier.height(9.dp))
+                Text("Amber days = estimated fertile window · NOT guaranteed safe on other dates",fontSize=11.sp,color=Muted)
             }
         }
         item {
@@ -393,7 +415,7 @@ private fun JournalScreen(m: Model, update: (Model) -> Unit) {
             Panel {
                 Text("A note to yourself",fontSize=18.sp,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(value=note,onValueChange={note=it.take(2000);saved=false},placeholder={Text("Anything on your mind today?")},modifier=Modifier.fillMaxWidth(),minLines=3,maxLines=6,shape=RoundedCornerShape(15.dp))
+                PremiumTextField(value=note,onValueChange={note=it.take(2000);saved=false},label="Your private thoughts",singleLine=false,minLines=3,maxLines=6)
                 Spacer(Modifier.height(16.dp))
                 Button(onClick={
                     val e = Entry(today,mood,selected.toList().sorted(),note)
@@ -433,12 +455,12 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) 
         TextButton(onClick={update(Model());confirm=false;reset()}) { Text("Erase everything",color=Rose) }
     },dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}})
     LazyColumn(contentPadding=PaddingValues(23.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item { Header("MADE FOR YOU · v1.1", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
+        item { Header("MADE FOR YOU · v1.2", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
         item {
             Panel {
                 Text("Make Bloodflow yours", fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = profileName, onValueChange = { profileName = it.take(40) }, label = { Text("Your name or nickname") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                PremiumTextField(value = profileName, onValueChange = { profileName = it.take(40) }, label = "Your name or nickname", singleLine = true)
                 Spacer(Modifier.height(10.dp))
                 Button(onClick = { update(m.copy(name = profileName.trim())) }, modifier = Modifier.fillMaxWidth()) { Text("Save my name") }
             }
@@ -474,7 +496,7 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) 
                 Spacer(Modifier.height(8.dp))
                 Text("Predictions are calendar-based estimates using your selected cycle length. They are not diagnoses, ovulation tests, fertility measurements, pregnancy tests, or a reliable method of birth control. Different cycles and ages can have different normal ranges.",fontSize=13.sp,color=Muted,lineHeight=19.sp)
                 Spacer(Modifier.height(9.dp))
-                Text("Version 1.1.0 · Offline-first",fontSize=12.sp,color=Rose)
+                Text("Version 1.2.0 · Offline-first",fontSize=12.sp,color=Rose)
             }
         }
     }
