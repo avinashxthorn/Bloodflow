@@ -50,7 +50,7 @@ private val fmt = DateTimeFormatter.ofPattern("MMM d, yyyy")
 private val monthFmt = DateTimeFormatter.ofPattern("MMMM yyyy")
 
 data class Entry(val date: String, val mood: String, val symptoms: List<String>, val note: String)
-data class Model(val periods: List<String> = emptyList(), val length: Int = 28, val days: Int = 5, val entries: List<Entry> = emptyList())
+data class Model(val periods: List<String> = emptyList(), val length: Int = 28, val days: Int = 5, val entries: List<Entry> = emptyList(), val name: String = "")
 
 private fun readModel(ctx: Context): Model {
     return try {
@@ -66,7 +66,8 @@ private fun readModel(ctx: Context): Model {
             val e = es.getJSONObject(i)
             val sy = e.optJSONArray("symptoms") ?: JSONArray()
             Entry(e.getString("date"), e.optString("mood"), (0 until sy.length()).map { sy.getString(it) }, e.optString("note"))
-        }
+        },
+        obj.optString("name", "")
     )
 } catch (_: Exception) { Model() }
 }
@@ -76,10 +77,11 @@ private fun saveModel(ctx: Context, m: Model) {
     o.put("periods", JSONArray(m.periods))
     o.put("length", m.length)
     o.put("days", m.days)
+    o.put("name", m.name)
     o.put("entries", JSONArray().also { a -> m.entries.forEach { e ->
         a.put(JSONObject().put("date", e.date).put("mood", e.mood).put("symptoms", JSONArray(e.symptoms)).put("note", e.note))
     } })
-    ctx.getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE).edit().putString("data", o.toString()).apply()
+    ctx.getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE).edit().putString("data", o.toString()).commit()
 }
 private fun date(s: String) = LocalDate.parse(s)
 private fun nice(s: String) = try { date(s).format(fmt) } catch (_: Exception) { s }
@@ -113,8 +115,8 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
     MaterialTheme(colorScheme = lightColorScheme(primary = Rose, secondary = Lavender, background = Background, surface = Paper, onSurface = Ink)) {
         Surface(color = Background, modifier = Modifier.fillMaxSize()) {
             if (onboarding) {
-                Welcome(model) { start, length, duration ->
-                    update(model.copy(periods = listOf(start.toString()), length = length, days = duration))
+                Welcome(model) { name, start, length, duration ->
+                    update(model.copy(name = name, periods = listOf(start.toString()), length = length, days = duration))
                     onboarding = false
                 }
             } else {
@@ -141,7 +143,8 @@ private fun BloodflowApp(model: Model, update: (Model) -> Unit) {
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun Welcome(model: Model, onSave: (LocalDate, Int, Int) -> Unit) {
+private fun Welcome(model: Model, onSave: (String, LocalDate, Int, Int) -> Unit) {
+    var name by remember { mutableStateOf(model.name) }
     var start by remember { mutableStateOf(LocalDate.now()) }
     var length by remember { mutableFloatStateOf(28f) }
     var duration by remember { mutableFloatStateOf(5f) }
@@ -161,6 +164,10 @@ private fun Welcome(model: Model, onSave: (LocalDate, Int, Int) -> Unit) {
         Text("A gentle, private space to understand your cycle and how you feel.", color = Muted, fontSize = 16.sp, lineHeight = 23.sp)
         Spacer(Modifier.height(32.dp))
         Panel {
+            Text("What should we call you?", fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(value = name, onValueChange = { name = it.take(40) }, label = { Text("Your name (optional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            Spacer(Modifier.height(18.dp))
             Text("When did your last period start?", fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(9.dp))
             OutlinedButton(onClick = { picker = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.DateRange, null); Spacer(Modifier.width(10.dp)); Text(start.format(fmt)) }
@@ -171,7 +178,7 @@ private fun Welcome(model: Model, onSave: (LocalDate, Int, Int) -> Unit) {
             Text("Period length  •  ${duration.roundToInt()} days", fontWeight = FontWeight.SemiBold)
             Slider(value = duration, onValueChange = { duration = it }, valueRange = 1f..10f, steps = 8)
             Spacer(Modifier.height(12.dp))
-            Button(onClick = { onSave(start, length.roundToInt(), duration.roundToInt()) }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) { Text("Start my journey ✨", fontWeight = FontWeight.Bold) }
+            Button(onClick = { onSave(name.trim(), start, length.roundToInt(), duration.roundToInt()) }, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) { Text("Start my journey ✨", fontWeight = FontWeight.Bold) }
         }
         Spacer(Modifier.height(15.dp))
         Text("Your entries stay on this device. Predictions are estimates, not contraception or medical advice.", fontSize = 12.sp, color = Muted, lineHeight = 17.sp)
@@ -209,7 +216,7 @@ private fun TodayScreen(m: Model, update: (Model) -> Unit, openJournal: () -> Un
     LazyColumn(contentPadding = PaddingValues(23.dp), verticalArrangement = Arrangement.spacedBy(17.dp)) {
         item {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.weight(1f)) { Header("Bloodflow · daily companion", "Hello, beautiful ♡") }
+                Column(Modifier.weight(1f)) { Header("Bloodflow · daily companion", if (m.name.isBlank()) "Hello, beautiful ♡" else "Hello, ${m.name} ♡") }
                 Box(Modifier.size(48.dp).clip(CircleShape).background(RoseLight), contentAlignment = Alignment.Center) { Text("✿",fontSize=26.sp,color=Rose) }
             }
         }
@@ -420,15 +427,25 @@ private fun JournalScreen(m: Model, update: (Model) -> Unit) {
 private fun ProfileScreen(m: Model, update: (Model) -> Unit, reset: () -> Unit) {
     var length by remember(m.length) { mutableFloatStateOf(m.length.toFloat()) }
     var duration by remember(m.days) { mutableFloatStateOf(m.days.toFloat()) }
+    var profileName by remember(m.name) { mutableStateOf(m.name) }
     var confirm by remember { mutableStateOf(false) }
     if(confirm) AlertDialog(onDismissRequest={confirm=false},title={Text("Erase all your data?")},text={Text("This permanently removes all period history, symptoms, notes, and settings saved by Bloodflow on this device.")},confirmButton={
         TextButton(onClick={update(Model());confirm=false;reset()}) { Text("Erase everything",color=Rose) }
     },dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}})
     LazyColumn(contentPadding=PaddingValues(23.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item { Header("Made with care","Your space") }
+        item { Header("Made with care", if (m.name.isBlank()) "Your space" else "${m.name}’s space") }
         item {
             Panel {
-                Row(verticalAlignment=Alignment.CenterVertically) { Text("🌷",fontSize=33.sp);Spacer(Modifier.width(12.dp));Column { Text("Bloodflow",fontSize=22.sp,fontWeight=FontWeight.Bold);Text("A more mindful monthly rhythm",fontSize=12.sp,color=Muted) } }
+                Text("Your profile", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(value = profileName, onValueChange = { profileName = it.take(40) }, label = { Text("Your name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
+                Button(onClick = { update(m.copy(name = profileName.trim())) }, modifier = Modifier.fillMaxWidth()) { Text("Save name") }
+            }
+        }
+        item {
+            Panel {
+                Row(verticalAlignment=Alignment.CenterVertically) { Text("🌷",fontSize=33.sp);Spacer(Modifier.width(12.dp));Column { Text("Bloodflow",fontSize=22.sp,fontWeight=FontWeight.Bold);Text(if (m.name.isBlank()) "A more mindful monthly rhythm" else "Made for ${m.name} ♡",fontSize=12.sp,color=Muted) } }
             }
         }
         item {
