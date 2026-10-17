@@ -64,3 +64,6 @@ See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for the required Firebase console ste
 
 ## Activate configured Google Sign-In
 After registering the four `BLOODFLOW_FIREBASE_*` repository secrets, **build a new APK** via GitHub Actions. Secrets are injected at compile time: downloading an older artifact does not activate Firebase. Check the build's commit SHA and install the latest APK over the existing app without clearing data. Google sign-in also needs the Android signing SHA-1 registered under the same Firebase project, the Google provider enabled in Firebase Authentication, and Firestore rules that grant access only to the signed-in user's own encrypted backup document. Never upload the passphrase or raw menstrual data to GitHub.
+
+## Google button sign-in correction (v1.3.1)
+The explicit **Continue with Google** button now invokes `GetSignInWithGoogleOption`, rather than trying to use the auto-prompt `GetGoogleIdOption`. This helps Android show an account chooser when the automatic credential sheet has no suitable saved credentials. Credentials still require matching Firebase configuration, a registered signing-certificate SHA-1, Google Play services, and a Google account on the device. This update does not delete app-private cycle data. Android device sign-in must be tested after compiling the new APK.

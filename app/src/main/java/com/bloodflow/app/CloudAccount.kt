@@ -12,7 +12,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
+import androidx.credentials.exceptions.NoCredentialException
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -87,21 +89,31 @@ fun CloudAccountSection(onRestore:(String)->Boolean) {
                 Text("Google sign-in is not connected yet. Add Firebase project settings in GitHub Actions secrets. Guest tracking still works.",color=MaterialTheme.colorScheme.error)
             } else if(user==null) {
                 Button(enabled=!busy,onClick={
+                    message=""
                     busy=true
                     scope.launch {
                         try {
-                            val request=GetCredentialRequest.Builder().addCredentialOption(
-                                GetGoogleIdOption.Builder().setServerClientId(BuildConfig.FIREBASE_WEB_CLIENT_ID)
-                                    .setFilterByAuthorizedAccounts(false).build()
-                            ).build()
-                            val result=CredentialManager.create(ctx).getCredential(ctx,request)
+                            // Explicit sign-in button: Google's button API can prompt for a
+                            // Google account even when the automatic account sheet has none.
+                            val activity=ctx as? Activity ?: error("Google sign-in requires an active screen")
+                            val option=GetSignInWithGoogleOption.Builder(BuildConfig.FIREBASE_WEB_CLIENT_ID).build()
+                            val request=GetCredentialRequest.Builder().addCredentialOption(option).build()
+                            val result=CredentialManager.create(activity).getCredential(
+                                context=activity, request=request
+                            )
                             val cred=result.credential as? CustomCredential ?: error("Unexpected Google credential")
                             if(cred.type!=GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) error("Not a Google credential")
                             val token=GoogleIdTokenCredential.createFrom(cred.data).idToken
                             val auth=FirebaseAuth.getInstance().signInWithCredential(GoogleAuthProvider.getCredential(token,null)).await()
                             user=auth.user
                             message="Signed in. Your local history has not been uploaded."
-                        } catch(e:Exception){message="Sign-in failed: ${e.localizedMessage ?: "try again"}"}
+                        } catch (_: GetCredentialCancellationException) {
+                            message="Google sign-in was cancelled. You can try again."
+                        } catch (_: NoCredentialException) {
+                            message="No Google account was offered. Check that a Google account is added to your phone and that Google Play services is up to date, then try again."
+                        } catch(e:Exception) {
+                            message="Google sign-in could not complete: ${e.localizedMessage ?: "Try again or continue without an account."}"
+                        }
                         busy=false
                     }
                 }) { Text("Continue with Google") }
