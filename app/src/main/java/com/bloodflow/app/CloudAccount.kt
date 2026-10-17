@@ -3,6 +3,11 @@ package com.bloodflow.app
 import android.app.Activity
 import android.content.Context
 import android.util.Base64
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.android.gms.common.api.ApiException
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -80,6 +85,43 @@ fun CloudAccountSection(onRestore:(String)->Boolean) {
     var confirmPass by remember { mutableStateOf("") }
     var askRestore by remember { mutableStateOf(false) }
     var pendingRestore by remember { mutableStateOf<String?>(null) }
+    // Compatibility sign-in uses the platform's established account picker, launched
+    // only when the user explicitly presses the alternative button. Credential Manager
+    // remains the primary, recommended sign-in flow.
+    val alternativeAccountPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            try {
+                val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    .getResult(ApiException::class.java)
+                val idToken = account.idToken ?: error("Google did not return an ID token")
+                scope.launch {
+                    try {
+                        val signedIn = FirebaseAuth.getInstance().signInWithCredential(
+                            GoogleAuthProvider.getCredential(idToken, null)
+                        ).await()
+                        user = signedIn.user
+                        message = "Signed in. Your cycle history stays on this phone until you choose to back it up."
+                    } catch (e: Exception) {
+                        message = "Account sign-in failed: ${e.localizedMessage ?: "Try again later."}"
+                    } finally {
+                        busy = false
+                    }
+                }
+            } catch (e: ApiException) {
+                message = "Google account picker couldn't complete (code ${e.statusCode}). Check Google Play services and your account, then try again."
+                busy = false
+            } catch (e: Exception) {
+                message = "Google account picker failed: ${e.localizedMessage ?: "Try again."}"
+                busy = false
+            }
+        } else {
+            // The Google screen can disappear without user interaction on some devices.
+            message = "The account picker closed without signing in. You may try again or continue without an account."
+            busy = false
+        }
+    }
     val snapshot=ctx.getSharedPreferences("bloodflow_local",Context.MODE_PRIVATE).getString("data",null)
     Card(shape=RoundedCornerShape(24.dp),colors=CardDefaults.cardColors(containerColor=androidx.compose.ui.graphics.Color.White),modifier=Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
@@ -108,7 +150,7 @@ fun CloudAccountSection(onRestore:(String)->Boolean) {
                             user=auth.user
                             message="Signed in. Your local history has not been uploaded."
                         } catch (_: GetCredentialCancellationException) {
-                            message="Google sign-in was cancelled. You can try again."
+                            message="Google couldn't complete this sign-in. If you didn't close the account picker, try the alternative option below."
                         } catch (_: NoCredentialException) {
                             message="No Google account was offered. Check that a Google account is added to your phone and that Google Play services is up to date, then try again."
                         } catch(e:Exception) {
@@ -117,6 +159,27 @@ fun CloudAccountSection(onRestore:(String)->Boolean) {
                         busy=false
                     }
                 }) { Text("Continue with Google") }
+                OutlinedButton(
+                    enabled = !busy,
+                    onClick = {
+                        busy = true
+                        message = ""
+                        try {
+                            val options = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                                .requestIdToken(BuildConfig.FIREBASE_WEB_CLIENT_ID)
+                                .requestEmail()
+                                .build()
+                            alternativeAccountPicker.launch(GoogleSignIn.getClient(ctx, options).signInIntent)
+                        } catch (e: Exception) {
+                            busy = false
+                            message = "Could not open the account picker: ${e.localizedMessage ?: "Check Google Play services."}"
+                        }
+                    }
+                ) { Text("Try another Google account picker") }
+                Text(
+                    "If Continue with Google closes immediately, try the alternative picker. Google login is optional.",
+                    style = MaterialTheme.typography.bodySmall
+                )
             } else {
                 Text("Signed in: ${user?.email ?: user?.displayName ?: "Google user"}")
                 OutlinedTextField(value=password,onValueChange={password=it.take(128)},label={Text("Backup encryption passphrase")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation())
