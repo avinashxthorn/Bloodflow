@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -23,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -97,6 +99,30 @@ private fun nextPeriod(last: LocalDate, today: LocalDate, length: Int): LocalDat
     return result
 }
 
+private fun validateRestoredJson(raw: String): Boolean {
+    val parsed = JSONObject(raw)
+    val periods = parsed.optJSONArray("periods") ?: return false
+    val entries = parsed.optJSONArray("entries") ?: return false
+    if (periods.length() == 0 || periods.length() > 500 || entries.length() > 10000) return false
+    if (parsed.optInt("length", 28) !in 21..45 || parsed.optInt("days", 5) !in 1..10) return false
+    if (parsed.optString("name").length > 40) return false
+    val dates = mutableSetOf<String>()
+    for (index in 0 until periods.length()) {
+        val value = periods.optString(index)
+        val parsedDate = runCatching { LocalDate.parse(value) }.getOrNull() ?: return false
+        if (parsedDate.isAfter(LocalDate.now()) || !dates.add(value)) return false
+    }
+    for (index in 0 until entries.length()) {
+        val entry = entries.optJSONObject(index) ?: return false
+        val entryDate = runCatching { LocalDate.parse(entry.optString("date")) }.getOrNull() ?: return false
+        if (entryDate.isAfter(LocalDate.now())) return false
+        if (entry.optString("mood").length > 40 || entry.optString("note").length > 2000) return false
+        val symptoms = entry.optJSONArray("symptoms") ?: return false
+        if (symptoms.length() > 30) return false
+    }
+    return true
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -108,11 +134,7 @@ class MainActivity : ComponentActivity() {
             fun update(m: Model) { state = m; saveModel(this, m) }
             BloodflowApp(state, ::update) { restoredJson ->
                 try {
-                    val parsed = JSONObject(restoredJson)
-                    val periods = parsed.optJSONArray("periods") ?: return@BloodflowApp false
-                    val entries = parsed.optJSONArray("entries") ?: return@BloodflowApp false
-                    if (periods.length() == 0 || entries.length() > 10000) return@BloodflowApp false
-                    for (index in 0 until periods.length()) LocalDate.parse(periods.getString(index))
+                    if (!validateRestoredJson(restoredJson)) return@BloodflowApp false
                     if (!getSharedPreferences("bloodflow_local", Context.MODE_PRIVATE)
                             .edit().putString("data", restoredJson).commit()) return@BloodflowApp false
                     state = readModel(this)
@@ -221,7 +243,17 @@ private fun Welcome(model: Model, onRestoreClick: () -> Unit, onSave: (String, L
 }
 @Composable
 private fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(Paper).padding(21.dp), content = content)
+    val shape = RoundedCornerShape(25.dp)
+    Column(
+        modifier
+            .fillMaxWidth()
+            .shadow(5.dp, shape, clip = false)
+            .clip(shape)
+            .background(Paper)
+            .border(1.dp, Color(0xFFF4E7EC), shape)
+            .padding(21.dp),
+        content = content
+    )
 }
 @Composable
 private fun Header(kicker: String, headline: String) {
@@ -483,7 +515,7 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, onReset: () -> Unit
         TextButton(onClick={update(Model());confirm=false;onReset()}) { Text("Erase everything",color=Rose) }
     },dismissButton={TextButton(onClick={confirm=false}){Text("Cancel")}})
     LazyColumn(contentPadding=PaddingValues(23.dp),verticalArrangement=Arrangement.spacedBy(16.dp)) {
-        item { Header("MADE FOR YOU · v1.3", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
+        item { Header("MADE FOR YOU · v1.3.2", if (m.name.isBlank()) "Your profile" else "${m.name}’s space") }
         item {
             Panel {
                 Text("Make Bloodflow yours", fontSize = 19.sp, fontWeight = FontWeight.Bold)
@@ -525,7 +557,7 @@ private fun ProfileScreen(m: Model, update: (Model) -> Unit, onReset: () -> Unit
                 Spacer(Modifier.height(8.dp))
                 Text("Predictions are calendar-based estimates using your selected cycle length. They are not diagnoses, ovulation tests, fertility measurements, pregnancy tests, or a reliable method of birth control. Different cycles and ages can have different normal ranges.",fontSize=13.sp,color=Muted,lineHeight=19.sp)
                 Spacer(Modifier.height(9.dp))
-                Text("Version 1.3.0 · Private by default",fontSize=12.sp,color=Rose)
+                Text("Version 1.3.2 · Private by default",fontSize=12.sp,color=Rose)
             }
         }
     }

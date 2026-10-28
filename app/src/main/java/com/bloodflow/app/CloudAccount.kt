@@ -182,10 +182,17 @@ fun CloudAccountSection(onRestore:(String)->Boolean) {
                 )
             } else {
                 Text("Signed in: ${user?.email ?: user?.displayName ?: "Google user"}")
-                OutlinedTextField(value=password,onValueChange={password=it.take(128)},label={Text("Backup encryption passphrase")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation())
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it.take(128) },
+                    label = { Text("Backup encryption passphrase") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation()
+                )
                 Text("Use 12+ characters and remember this passphrase. We cannot recover it.",style=MaterialTheme.typography.bodySmall)
                 OutlinedTextField(value=confirmPass,onValueChange={confirmPass=it.take(128)},label={Text("Confirm passphrase for backup")},modifier=Modifier.fillMaxWidth(),singleLine=true,visualTransformation=androidx.compose.ui.text.input.PasswordVisualTransformation())
-                Button(enabled=!busy && password.length>=12 && password==confirmPass && snapshot!=null,onClick={
+                Button(enabled = !busy && password.length >= 12 && password == confirmPass && snapshot != null, onClick = {
                     busy=true
                     scope.launch {
                         try {
